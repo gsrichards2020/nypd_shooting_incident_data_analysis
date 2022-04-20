@@ -1,0 +1,97 @@
+---
+title: "NYPD Shooting Incident Data Report"
+author: "Geoffrey Richards"
+date: "3/23/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## NYPD Shooting Incident Data
+
+This is a report summarizing and characterizing NYPD Shooting Data.  
+
+The source of the data is https://catalog.data.gov/dataset.Several.
+
+Columns filtered from data including INCIDENT_KEY, JURISDICTION_CODE, STATISTICAL_MURDER_FLAG, VIC_AGE_GROUP, VIC_SEX,VIC_RACE, X_COORD_CD, Y_COORD_CD, Lon_Lat, PERP_RACE, PERP_AGE_GROUP, and PRECINCT.
+
+```{r, echo = TRUE, warning = FALSE, message = FALSE}
+#Import libraries
+library(tidyverse)
+library(readr)
+library(dplyr)
+
+#Obtain data from source.
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+nypdShootingData = read_csv(url_in)
+
+#Down select data.
+nypdShootingData <- subset(nypdShootingData, select = -c(JURISDICTION_CODE))
+nypdShootingData <- subset(nypdShootingData, select = -c(STATISTICAL_MURDER_FLAG))
+nypdShootingData <- subset(nypdShootingData, select = -c(VIC_AGE_GROUP,VIC_SEX,VIC_RACE))
+nypdShootingData <- subset(nypdShootingData, select = -c(Y_COORD_CD,Lon_Lat,PERP_RACE))
+nypdShootingData <- subset(nypdShootingData, select = -c(PERP_AGE_GROUP,PRECINCT))
+nypdShootingData <- subset(nypdShootingData, select = -c(INCIDENT_KEY,X_COORD_CD))
+
+#Create tables for processing.
+t <- table(floor(as.numeric(nypdShootingData$OCCUR_TIME, units="hours")/3600))
+t2 <- table(nypdShootingData$BORO)
+temp <- nypdShootingData$OCCUR_DATE
+t3 <- table(as.numeric(substr(temp,nchar(temp) - 3,nchar(temp))))
+t4 <- t3
+
+#Fix data types.
+nypdShootingData$OCCUR_TIME <- as.numeric(nypdShootingData$OCCUR_TIME, units="hours")
+```
+\newpage
+NYPD Shooting Data Summary:
+```{r nypdShootingData, echo = TRUE, warning = FALSE, message = FALSE}
+#Produce summary.
+summary(nypdShootingData)
+
+```
+\newpage
+## Data Visualization
+
+Interesting results reveal that most shootings occurred in the late evening and early morning.
+
+```{r t, echo = TRUE, warning = FALSE, message = FALSE}
+#Create bar plot of shooting incident times.
+barplot(t,main="Time of Shooting",xlab="Hour",ylab="Count")
+```
+\newpage
+Additionally, we can observe that Brooklyn is the most dangerous boro for which we have data.
+
+```{r t2, echo = TRUE, warning = FALSE, message = FALSE}
+#Create bar plot of shooting incidents by boro.
+par(mar=c(8, 3, 3, 1))
+barplot(t2,main="Boro Shooting Count",ylab="Count",las=2)
+```
+\newpage
+## Analysis 1
+
+By plotting the shooting counts by year, we can see a downward trend in shooting incidents.  However, we could note that there was a spike in shooting incidents in 2020. We might attribute this to the Covid lockdown and related social unrest.
+
+This conclusion may be biased due to my own personal beliefs surrounding the Covid lockdown and personal experiences during that time period.  Additionally, the linear model may only capture a local trend in data.  It is possible that if we were to obtain data from as far back as the 1980s, we may actually see a global upward trend in shooting related incidents.  
+
+Finally, the model is informationally biased because it not complex enough to establish a trend associated with shooting incidents.  We might expect, as an example, shooting related incidents to be descending rapidly, but then trail off asymptotically towards zero. Such is a typical trend for sociological variables. This complexity may require a nonlinear or higher order model.
+
+```{r t3, echo = TRUE, warning = FALSE, message = FALSE}
+
+#Fit linear regression model
+Year = as.numeric(names(t3))
+Count = as.numeric(t3)
+lmod <- lm(Count~Year,data.frame(Year,Count))
+
+#Obtain predictions
+pred <- predict(lmod, newdata = data.frame(Year))
+
+#Plot data
+data<-data.frame(Year,Count,pred)
+plot(data$Year,data$Count,type="l",main="Yearly Incidents",xlab="Year",ylab="Incidents")
+lines(data$Year,data$pred,lty=2,lwd=2,col="green")
+```
+
+
